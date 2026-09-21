@@ -13,8 +13,8 @@ export const LEGACY_HISTORY_FILE = path.join(LEGACY_DATA_DIR, "history.jsonl");
 
 export const DEFAULT_CONFIG: CoachConfig = {
 	enabled: true,
-	provider: "antigravity",
-	modelId: "gemini-3.8-flash",
+	provider: "",
+	modelId: "",
 	targetLanguage: "English",
 	rewritePrompt: false,
 	defaultView: "diff",

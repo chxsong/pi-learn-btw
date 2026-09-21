@@ -78,29 +78,13 @@ export default function (pi: ExtensionAPI) {
 		try {
 			lastOriginalPrompt = prompt;
 
-			let model = ctx.modelRegistry.find(config.provider, config.modelId);
-			if (!model || !ctx.modelRegistry.hasConfiguredAuth(model)) {
-				const available = ctx.modelRegistry.getAvailable();
-				model =
-					available.find(
-						(m) =>
-							m.id.includes("flash") ||
-							m.id.includes("mini") ||
-							m.id.includes("haiku") ||
-							m.id.includes("8b")
-					) ?? ctx.model;
+			// Use user's chosen model if configured and authenticated; otherwise use user's active Pi model or first available model
+			let model = (config.provider && config.modelId)
+				? ctx.modelRegistry.find(config.provider, config.modelId)
+				: undefined;
 
-				if (model && (config.provider !== model.provider || config.modelId !== model.id)) {
-					config.provider = model.provider;
-					config.modelId = model.id;
-					saveConfig({ provider: config.provider, modelId: config.modelId }, DEFAULT_CONFIG_FILE);
-					if (ctx.hasUI) {
-						ctx.ui.notify(
-							`learn-btw: Default model unauthenticated. Auto-switched to ${model.provider}/${model.id}. Run /learn-btw config to change.`,
-							"warning"
-						);
-					}
-				}
+			if (!model || !ctx.modelRegistry.hasConfiguredAuth(model)) {
+				model = ctx.model ?? ctx.modelRegistry.getAvailable()[0];
 			}
 
 			if (!model || !ctx.modelRegistry.hasConfiguredAuth(model)) {
@@ -170,38 +154,25 @@ export default function (pi: ExtensionAPI) {
 			config.hasSeenWelcome = true;
 			saveConfig({ hasSeenWelcome: true }, DEFAULT_CONFIG_FILE);
 
-			// Check if default model is authenticated
-			const configuredModel = ctx.modelRegistry.find(config.provider, config.modelId);
-			const hasAuth = configuredModel ? ctx.modelRegistry.hasConfiguredAuth(configuredModel) : false;
-
-			if (!hasAuth) {
-				const available = ctx.modelRegistry.getAvailable();
-				const suggested = available.find((m) =>
-					m.id.includes("flash") || m.id.includes("mini") || m.id.includes("haiku") || m.id.includes("8b")
-				) ?? ctx.model;
-
-				if (suggested) {
-					config.provider = suggested.provider;
-					config.modelId = suggested.id;
-					saveConfig({ provider: config.provider, modelId: config.modelId }, DEFAULT_CONFIG_FILE);
-				}
-			}
+			const currentModel = (config.provider && config.modelId)
+				? `${config.provider}/${config.modelId}`
+				: (ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : "Pi active model");
 
 			const setupNow = await ctx.ui.confirm(
 				"pi-learn-btw: Initial Setup",
-				`Welcome to pi-learn-btw!\n\n` +
+				`Welcome to pi-learn-btw! By-the-way language coach while coding with AI.\n\n` +
 				`Current Configuration:\n` +
+				`• Coach Model: ${currentModel}\n` +
 				`• Target Language: ${config.targetLanguage || "English"}\n` +
-				`• Coach Model: ${config.provider}/${config.modelId}\n` +
 				`• View Mode: ${config.defaultView || "diff"}\n\n` +
-				`Would you like to configure your coach model and preferences now?`
+				`Would you like to select your preferred coach model from your Pi models now?`
 			);
 
 			if (setupNow) {
 				await openConfigMenu(ctx);
 			} else {
 				ctx.ui.notify(
-					`learn-btw: Active (${config.provider}/${config.modelId}). Run /learn-btw config anytime to customize.`,
+					`learn-btw: Ready! Using ${currentModel}. Run /learn-btw config anytime to customize.`,
 					"info"
 				);
 			}
@@ -260,13 +231,15 @@ export default function (pi: ExtensionAPI) {
 
 		const targetLangLabel = config.targetLanguage || "English";
 		const rewriteLabel = config.rewritePrompt ? "Enabled" : "Disabled";
-		const modelLabel = `${config.provider}/${config.modelId}`;
+		const activeModel = (config.provider && config.modelId)
+			? `${config.provider}/${config.modelId}`
+			: (ctx.model ? `${ctx.model.provider}/${ctx.model.id} (Pi Default)` : "Pi Default");
 		const viewLabel = config.defaultView || "diff";
 
 		const options = [
 			`1. Target Language: [${targetLangLabel}]`,
 			`2. Send Polished Prompt to AI: [${rewriteLabel}]`,
-			`3. Select Model: [${modelLabel}]`,
+			`3. Select Model: [${activeModel}]`,
 			`4. Default View: [${viewLabel}]`,
 			"5. Clear All History Data",
 			"Exit",
@@ -317,31 +290,31 @@ export default function (pi: ExtensionAPI) {
 				);
 			}
 		} else if (choice.startsWith("3.")) {
-			// Select Model from authenticated available models
+			// Select Model from models configured in Pi
 			const availableModels = ctx.modelRegistry.getAvailable();
-			const flashModels = availableModels
-				.filter((m) =>
-					m.id.includes("flash") ||
-					m.id.includes("mini") ||
-					m.id.includes("haiku") ||
-					m.id.includes("8b") ||
-					m.provider === config.provider
-				)
-				.map((m) => `${m.provider}/${m.id}`);
+			const modelOptions = availableModels.map((m) => {
+				const isCurrent = (config.provider === m.provider && config.modelId === m.id) ||
+					(!config.provider && ctx.model?.provider === m.provider && ctx.model?.id === m.id);
+				return isCurrent ? `${m.provider}/${m.id} (Active)` : `${m.provider}/${m.id}`;
+			});
 
-			const otherModels = availableModels
-				.map((m) => `${m.provider}/${m.id}`)
-				.filter((id) => !flashModels.includes(id));
+			if (modelOptions.length === 0 && ctx.model) {
+				modelOptions.push(`${ctx.model.provider}/${ctx.model.id} (Active)`);
+			}
 
-			const uniqueModels = Array.from(new Set([...flashModels, ...otherModels]));
+			const modelChoice = await ctx.ui.select(
+				"Select Coach Model (Models Configured in Pi)",
+				[
+					...modelOptions,
+					"Custom...",
+				]
+			);
 
-			const modelChoice = await ctx.ui.select("Select Model (Authenticated Providers)", [
-				...uniqueModels,
-				"Custom...",
-			]);
+			if (!modelChoice) return;
 
 			if (modelChoice === "Custom...") {
-				const custom = await ctx.ui.input("Enter model as provider/model_id:", "antigravity/gemini-3.8-flash");
+				const placeholder = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : "provider/model_id";
+				const custom = await ctx.ui.input("Enter model as provider/model_id:", placeholder);
 				if (custom && custom.includes("/")) {
 					const slashIdx = custom.indexOf("/");
 					const p = custom.slice(0, slashIdx).trim();
@@ -351,14 +324,17 @@ export default function (pi: ExtensionAPI) {
 					saveConfig({ provider: config.provider, modelId: config.modelId }, DEFAULT_CONFIG_FILE);
 					ctx.ui.notify(`learn-btw: model set to ${config.provider}/${config.modelId}.`, "info");
 				}
-			} else if (modelChoice && modelChoice.includes("/")) {
-				const slashIdx = modelChoice.indexOf("/");
-				const p = modelChoice.slice(0, slashIdx).trim();
-				const m = modelChoice.slice(slashIdx + 1).trim();
-				config.provider = p;
-				config.modelId = m;
-				saveConfig({ provider: config.provider, modelId: config.modelId }, DEFAULT_CONFIG_FILE);
-				ctx.ui.notify(`learn-btw: model set to ${config.provider}/${config.modelId}.`, "info");
+			} else {
+				const cleanChoice = modelChoice.replace(/\s*\(Active\)$/, "").trim();
+				if (cleanChoice.includes("/")) {
+					const slashIdx = cleanChoice.indexOf("/");
+					const p = cleanChoice.slice(0, slashIdx).trim();
+					const m = cleanChoice.slice(slashIdx + 1).trim();
+					config.provider = p;
+					config.modelId = m;
+					saveConfig({ provider: config.provider, modelId: config.modelId }, DEFAULT_CONFIG_FILE);
+					ctx.ui.notify(`learn-btw: model set to ${config.provider}/${config.modelId}.`, "info");
+				}
 			}
 		} else if (choice.startsWith("4.")) {
 			// Default View
