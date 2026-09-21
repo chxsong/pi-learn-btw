@@ -55,6 +55,13 @@ export function migrateLegacyRecordsIfNeeded(historyFile: string): void {
 				all.sort((a, b) => a.timestamp - b.timestamp);
 				fs.writeFileSync(historyFile, all.map((r) => JSON.stringify(r)).join("\n") + "\n", "utf-8");
 			}
+
+			// Rename migrated legacy file so it doesn't re-migrate or resurrect after history is cleared
+			try {
+				fs.renameSync(LEGACY_HISTORY_FILE, `${LEGACY_HISTORY_FILE}.migrated`);
+			} catch {
+				// Non-critical
+			}
 		}
 	} catch {
 		// Non-critical migration failure
@@ -144,9 +151,10 @@ export function calculateStats(records: CoachRecord[]): CoachStats {
 		}
 	}
 
-	// Extract new/improved words from diff (skipping common stop words)
+	// Extract new/improved words from diff (sample up to latest 200 records to prevent freezing on large histories)
+	const vocabRecords = records.length > 200 ? records.slice(-200) : records;
 	const vocabCountMap = new Map<string, number>();
-	for (const r of records) {
+	for (const r of vocabRecords) {
 		if (r.original && r.improved) {
 			const { newLineWords } = computeWordDiff(r.original, r.improved);
 			for (const w of newLineWords) {

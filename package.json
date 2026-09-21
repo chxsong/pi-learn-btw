@@ -1,7 +1,7 @@
 {
   "name": "pi-learn-btw",
   "version": "1.0.0",
-  "description": "Learn English by the way, while coding with AI. Pinned below Pi's editor with code diffs and in-place bilingual lookup.",
+  "description": "Learn English by the way, while coding with AI. Pinned below Pi's editor with git-style code diffs.",
   "type": "module",
   "keywords": [
     "pi-package",
@@ -11,18 +11,41 @@
     "tui",
     "by-the-way"
   ],
+  "homepage": "https://github.com/chxsong/pi-learn-btw#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chxsong/pi-learn-btw.git"
+  },
+  "bugs": {
+    "url": "https://github.com/chxsong/pi-learn-btw/issues"
+  },
+  "files": [
+    "extensions",
+    "src",
+    "README.md",
+    "README_zh.md",
+    "LICENSE"
+  ],
   "pi": {
     "extensions": [
       "./extensions/index.ts"
     ]
   },
   "scripts": {
-    "test": "node --experimental-strip-types --test tests/*.test.ts"
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "check": "tsc --noEmit"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-tui": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "@types/node": "^22.13.0",
+    "typescript": "^5.7.3"
   },
   "author": "chxsong",
   "license": "MIT"

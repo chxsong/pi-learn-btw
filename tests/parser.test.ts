@@ -14,14 +14,12 @@ describe("Coach Parser & Metrics Module", () => {
 				{ type: "add", text: "I like chatting" },
 				{ type: "same", text: " with AI in English." },
 			],
-			vocabulary: [{ word: "fluency", chinese: "流利度" }],
 		});
 
 		const res = parseCoachResponse(raw, original);
 		assert.strictEqual(res.has_issues, true);
 		assert.strictEqual(res.improved, "I like chatting with AI in English. Currently, I want to improve my fluency.");
-		assert.strictEqual(res.diff.length, 3);
-		assert.strictEqual(res.vocabulary[0].word, "fluency");
+		assert.strictEqual(res.diff?.length, 3);
 	});
 
 	it("should cleanly parse JSON wrapped in markdown code fence", () => {
@@ -30,7 +28,6 @@ describe("Coach Parser & Metrics Module", () => {
 				has_issues: false,
 				improved: original,
 				diff: [{ type: "same", text: original }],
-				vocabulary: [],
 			}) +
 			"\n```";
 
@@ -46,7 +43,6 @@ describe("Coach Parser & Metrics Module", () => {
 			has_issues: true,
 			improved: "I want to know how this works.",
 			diff: [],
-			vocabulary: [],
 		});
 
 		assert.strictEqual(isSubstantiveDifference(prompt, "I want to know how this works."), false);

@@ -119,7 +119,11 @@ export default function (pi: ExtensionAPI) {
 			const res = await ctx.modelRegistry.complete(
 				model,
 				{ messages },
-				{ cacheRetention: "none", sessionId: uuidv7() }
+				{
+					cacheRetention: "none",
+					sessionId: uuidv7(),
+					signal: AbortSignal.timeout(8000),
+				}
 			);
 
 			const rawText = res.content
@@ -272,19 +276,22 @@ export default function (pi: ExtensionAPI) {
 		if (!choice || choice === "Exit") return;
 
 		if (choice.startsWith("1.")) {
-			// Target Language
-			const langChoice = await ctx.ui.select("Select Target Language", [
-				"English",
-				"Spanish (Español)",
-				"French (Français)",
-				"German (Deutsch)",
-				"Japanese (日本語)",
-				"Chinese (中文)",
-				"Custom...",
-			]);
+			// Target Language (space-delimited languages supported)
+			const langChoice = await ctx.ui.select(
+				"Select Target Language (space-delimited languages supported)",
+				[
+					"English (Recommended)",
+					"Spanish (Español)",
+					"French (Français)",
+					"German (Deutsch)",
+					"Italian (Italiano)",
+					"Portuguese (Português)",
+					"Custom (space-separated)...",
+				]
+			);
 
-			if (langChoice === "Custom...") {
-				const custom = await ctx.ui.input("Enter language name (e.g. Italian, Korean):", "");
+			if (langChoice === "Custom (space-separated)...") {
+				const custom = await ctx.ui.input("Enter language name (e.g. Dutch, Swedish):", "");
 				if (custom && custom.trim()) {
 					config.targetLanguage = custom.trim();
 					saveConfig({ targetLanguage: config.targetLanguage }, DEFAULT_CONFIG_FILE);
@@ -379,6 +386,16 @@ export default function (pi: ExtensionAPI) {
 					if (fs.existsSync(DEFAULT_HISTORY_FILE)) {
 						fs.unlinkSync(DEFAULT_HISTORY_FILE);
 					}
+					// Also clean up any legacy files to prevent resurrection
+					import("../src/config.ts").then(({ LEGACY_HISTORY_FILE }) => {
+						try {
+							if (fs.existsSync(LEGACY_HISTORY_FILE)) fs.unlinkSync(LEGACY_HISTORY_FILE);
+							const migrated = `${LEGACY_HISTORY_FILE}.migrated`;
+							if (fs.existsSync(migrated)) fs.unlinkSync(migrated);
+						} catch {
+							// Non-critical
+						}
+					});
 					ctx.ui.notify("learn-btw: history reset.", "info");
 				} catch {
 					ctx.ui.notify("learn-btw: failed to clear history.", "error");
