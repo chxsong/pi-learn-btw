@@ -1,0 +1,29 @@
+{
+  "name": "pi-learn-btw",
+  "version": "1.0.0",
+  "description": "Learn English by the way, while coding with AI. Pinned below Pi's editor with code diffs and in-place bilingual lookup.",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "english-learning",
+    "developer-tools",
+    "diff",
+    "tui",
+    "by-the-way"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions/index.ts"
+    ]
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test tests/*.test.ts"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "author": "chxsong",
+  "license": "MIT"
+}
